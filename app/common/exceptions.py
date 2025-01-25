@@ -14,4 +14,3 @@ class DomainNameError(Exception):
     def __init__(self, original_exception: Exception) -> None:
         super().__init__(DomainNameError.message, original_exception)
         self.original_exception = original_exception
-
