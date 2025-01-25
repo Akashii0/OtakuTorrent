@@ -9,7 +9,7 @@ import time
 from typing import Callable, TypeVar, cast
 import requests
 
-from app.common.exceptions import DomainNameError
+from app.common.exceptions import DomainNameError, NoResourceLength
 
 T = TypeVar("T")
 PARSER = "html.parser"
@@ -261,3 +261,52 @@ class ProgressFunction:
         if self.resume.is_set():
             self.cancelled = True
 
+
+def try_deleting(path: str) -> None:
+    if not os.path.isfile(path):
+        return
+    try:
+        os.unlink(path)
+    except PermissionError:
+        pass
+
+
+class Download(ProgressFunction):
+    def __init__(
+            self,
+            link_or_segment_urls: str | list[str],
+            episode_title: str,
+            download_path: str,
+            progress_update_callback: Callable = lambda _: None,
+            file_extension=".mp4",
+            is_hls_download=False,
+            cookies=requests.sessions.RequestsCookieJar(),
+    ) -> None:
+        super().__init__()
+        self.link_or_segment_urls = link_or_segment_urls
+        self.episode_title = episode_title
+        self.download_path = download_path
+        self.progress_update_callback = progress_update_callback
+        self.is_hls_download = is_hls_download
+        self.cookies = cookies
+        file_title = f"{self.episode_title}{file_extension}"
+        self.file_path = os.path.join(self.download_path, file_title)
+        ext = ".ts" if is_hls_download else file_extension
+        temporary_file_title = f"{self.episode_title} [Downloading]{ext}"
+        self.temporary_file_path = os.path.join(
+            self.download_path, temporary_file_title
+        )
+        try_deleting(self.temporary_file_path)
+
+    @staticmethod
+    def get_resource_length(url: str) -> tuple[int, str]:
+        response = CLIENT.get(url, stream=True, allow_redirects=True)
+        resource_length_str = response.headers.get("Content-Length", None)
+        redirect_url = response.url
+        if resource_length_str is None:
+            raise NoResourceLength(url, redirect_url)
+        return (int(resource_length_str), redirect_url)
+    
+    def cancel(self):
+        return super().cancel()
+    
