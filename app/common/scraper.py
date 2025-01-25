@@ -1,5 +1,6 @@
 # flake8: noqa: E501
 
+from base64 import b64decode
 from enum import Enum
 import os
 import random
@@ -72,7 +73,6 @@ USER_AGENTS = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Safari/605.1.15",
 )  # List of user agents for mobile devices
-
 
 def has_valid_internet_connection() -> bool:
     """
