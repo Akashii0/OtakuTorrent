@@ -5,6 +5,7 @@ from enum import Enum
 import os
 import random
 import re
+from string import ascii_letters, digits, printable
 from threading import Event
 import time
 from typing import Callable, Iterator, TypeVar, cast
@@ -244,6 +245,72 @@ class AnimeMetadata:
     def get_poster_bytes(self) -> bytes:
         response = CLIENT.get(self.poster_url)
         return response.content
+
+
+def closest_quality_index(potential_qualities: list[str], target_quality: str) -> int:
+    detected_qualities: list[tuple[int, int]] = []
+    target_quality = target_quality.replace("p", "")
+    for idx, potential_quality in enumerate(potential_qualities):
+        match = QUALITY_REGEX_1.search(potential_quality)
+        if not match:
+            match = QUALITY_REGEX_2.search(potential_quality)
+
+        if match:
+            quality = cast(str, match.group(1))
+            if quality == target_quality:
+                return idx
+            else:
+                detected_qualities.append((int(quality), idx))
+    int_target_quality = int(target_quality)
+    if not detected_qualities:
+        if int_target_quality <= 480:
+            return 0
+        return -1
+
+    detected_qualities.sort(key=lambda x: x[0])
+    closest = detected_qualities[0]
+    for quality in detected_qualities:
+        if quality[0] > int_target_quality:
+            break
+        closest = quality
+    return closest[1]
+
+
+def sanitise_title(title: str, all=False, exclude="") -> str:
+    if all:
+        allowed_chars = set(ascii_letters + digits + exclude)
+    else:
+        allowed_chars = set(printable) - set('\\/:*?"<>|')
+        title = title.replace(":", " -")
+    title = title.rstrip(".")
+    sanitised = "".join(char for char in title if char in allowed_chars)
+
+    return sanitised[:255].rstrip()
+
+
+def lacked_episode_numbers(
+    start_episode: int, end_episode: int, haved_episodes: list[int]
+) -> list[int]:
+    predicted_episodes_to_download: list[int] = []
+    for episode in range(start_episode, end_episode + 1):
+        if episode not in haved_episodes:
+            predicted_episodes_to_download.append(episode)
+    return predicted_episodes_to_download
+
+
+def lacked_episodes(
+    lacking_episode_numbers: list[int], episode_page_links: list[str]
+) -> list[str]:
+    # Episode count is what is used to generate lacking_episode_numbers, episode count is gotten from anime the page which uses subbed episodes count
+    # so for an anime where sub episodes are ahead of dub the missing episodes will be outside the range of the episode_page_links
+    first_eps_number = lacking_episode_numbers[0]
+    # If the alleged episode count is more than the actual number of episodes the site has e.g., Gintama on animpahe
+    if len(lacking_episode_numbers) > len(episode_page_links):
+        lacking_episode_numbers = lacking_episode_numbers[: len(episode_page_links)]
+    return [
+        episode_page_links[eps_number - first_eps_number]
+        for eps_number in lacking_episode_numbers
+    ]
 
 
 class ProgressFunction:
