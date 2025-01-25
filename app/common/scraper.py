@@ -6,7 +6,7 @@ import random
 import re
 from threading import Event
 import time
-from typing import Callable, TypeVar, cast
+from typing import Callable, Iterator, TypeVar, cast
 import requests
 
 from app.common.exceptions import DomainNameError, NoResourceLength
@@ -310,3 +310,71 @@ class Download(ProgressFunction):
     def cancel(self):
         return super().cancel()
     
+    def start_download(self):
+        download_complete = False
+        while not download_complete and not self.cancelled:
+            download_complete = self.normal_download()
+        if self.cancelled:
+            try_deleting(self.temporary_file_path)
+            return
+        try_deleting(self.file_path)
+        try:
+            os.rename(self.temporary_file_path, self.file_path)
+        except PermissionError:
+            pass
+
+    def normal_download(self) -> bool:
+        self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
+        response = CLIENT.get(
+            self.link_or_segment_urls,
+            stream=True,
+            timeout=30,
+            cookies=self.cookies,
+        )
+    
+        def response_ranged(start_byte_num: int) -> requests.Response:
+            self.link_or_segment_urls = cast(str, self.link_or_segment_urls)
+            return CLIENT.get(
+                self.link_or_segment_urls,
+                stream=True,
+                headers=CLIENT.append_headers({"Range": f"bytes={start_byte_num}-"}),
+                timeout=30,
+                cookies=self.cookies,
+            )
+        
+        total = int(response.headers.get("Content-Length", 0))
+
+        def download(start_byte_num=0) -> bool:
+            with open(
+                self.temporary_file_path, "wb" if start_byte_num else "ab"
+            ) as file:
+                iter_content = cast(
+                    Iterator[bytes],
+                    response.iter_content(chunk_size=IBYTES_TO_MBS_DIVISOR)
+                    if start_byte_num
+                    else CLIENT.network_error_retry_wrapper(
+                        lambda: response_ranged(start_byte_num).iter_content(
+                            chunk_size=IBYTES_TO_MBS_DIVISOR
+                        )
+                    ),
+                )
+                while True:
+                    try:
+                        data = CLIENT.network_error_retry_wrapper(
+                            lambda: next(iter_content)
+                        )
+                        self.resume.wait()
+                        if self.cancelled:
+                            return False
+                        size = file.write(data)
+                        self.progress_update_callback(size)
+                    except StopIteration:
+                        break
+            
+            file_size = os.path.getsize(self.temporary_file_path)
+            return True if file_size >= total else download(file_size)
+        
+        return download()
+  
+if __name__ == "__main__":
+    pass
