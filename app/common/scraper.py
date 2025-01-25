@@ -1,7 +1,10 @@
+# flake8: noqa: E501
+
 from enum import Enum
 import os
 import random
 import re
+from threading import Event
 import time
 from typing import Callable, TypeVar, cast
 import requests
@@ -241,5 +244,20 @@ class AnimeMetadata:
     def get_poster_bytes(self) -> bytes:
         response = CLIENT.get(self.poster_url)
         return response.content
-    
-    
+
+
+class ProgressFunction:
+    def __init__(self) -> None:
+        self.resume = Event()
+        self.resume.set()
+        self.cancelled = False
+
+    def pause_or_resume(self) -> None:
+        if self.resume.is_set():
+            return self.resume.clear()
+        self.resume.set()
+
+    def cancel(self) -> None:
+        if self.resume.is_set():
+            self.cancelled = True
+
