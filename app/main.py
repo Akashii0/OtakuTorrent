@@ -23,7 +23,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="OtakuTorrent API",
     lifespan=lifespan,
-    description="API for OtakuTorrent",
+    description="Welcome to the OtakuTorrent, an Anime Scraper and Downloader API",
     version="1.0.0",
     docs_url="/",
     contact={
