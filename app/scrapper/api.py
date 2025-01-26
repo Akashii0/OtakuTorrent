@@ -32,6 +32,22 @@ def validate_episode_range(start: int, end: int):
 router = APIRouter()
 
 
+@router.get("/welcome")
+async def hello():
+    """Welcome Endpoint"""
+    return JSONResponse(
+        content={
+            "message": "Welcome to the OtakuTorrent, an Anime Scraper and Downloader API",
+            "endpoints": {
+                "/search": "Search for anime by keyword",
+                "/metadata": "Fetch metadata for an anime",
+                "/dub-availability": "Check if a dubbed version exists",
+                "/download-links": "Get episode download links",
+            }    
+        }
+    )
+
+
 @router.get("/search", response_model=List[SearchResult])
 async def search_anime(
     keyword: str = Query(..., description="Anime name to search"),
