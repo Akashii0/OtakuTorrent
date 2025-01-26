@@ -1,6 +1,6 @@
 # flake8: noqa: E501
 
-from base64 import b64decode
+# from base64 import b64decode
 from enum import Enum
 import os
 import random
