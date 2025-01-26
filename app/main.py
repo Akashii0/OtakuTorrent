@@ -19,11 +19,19 @@ async def lifespan(_: FastAPI):
     yield
     print("Adventure complete. Until next time!")
 
+description = """
+## Welcome to the OtakuTorrent, an Anime Scraper and Downloader API 🚀🚀🚀
+
+* **"/search"**: "Search for anime by keyword",
+* **"/metadata"**: "Fetch metadata for an anime",
+* **"/dub-availability"**: "Check if a dubbed version exists",
+* **"/download-links"**: "Get episode download links",
+"""
 
 app = FastAPI(
     title="OtakuTorrent API",
     lifespan=lifespan,
-    description="Welcome to the OtakuTorrent, an Anime Scraper and Downloader API",
+    description=description,
     version="1.0.0",
     docs_url="/",
     contact={
