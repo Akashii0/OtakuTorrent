@@ -1,6 +1,6 @@
 # flake8: noqa: E501
 
-from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, Depends
+from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
 from fastapi.responses import JSONResponse
 from typing import List
 from app.scrapper.services import (
@@ -107,11 +107,11 @@ async def check_dub(
 
 @router.get("/download_links", response_model=DownloadLinkResponse)
 async def download_links(
+    background_tasks: BackgroundTasks,
     anime_url: HttpUrl = Query(..., description="Anime title"),
     start_episode: int = Query(..., description="Start episode", ge=1),
     end_episode: int = Query(..., description="End episode", ge=1),
     quality: str = Query("720", description="Preferred video Quality"),
-    background_tasks: BackgroundTasks = Depends()
 ):
     """Fetch download links for episodes of a specific anime"""
     try:
