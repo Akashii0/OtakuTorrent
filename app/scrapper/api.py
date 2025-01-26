@@ -1,8 +1,8 @@
 # flake8: noqa: E501
 
-from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, Path, Depends
+from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
-from typing import List, Optional
+from typing import List
 from app.scrapper.services import (
     search,
     extract_anime_metadata,
@@ -54,16 +54,75 @@ async def get_metadata(
 ):
     """Get anime metadata from URL."""
     try:
-        content, url = get_anime_page_content(anime_url)
+        content, url = get_anime_page_content(str(anime_url))
         metadata = extract_anime_metadata(content)
+
+        # # Ensure airing_status is an Enum
+        # if not isinstance(metadata.airing_status, Enum):
+        #     raise ValueError("Airing status must be an Enum")
+
         return {
-            "poster_link": metadata.poster_link,
+            "poster_url": metadata.poster_url,
             "summary": metadata.summary,
             "genres": metadata.genres,
             "release_year": metadata.release_year,
             "episode_count": metadata.episode_count,
-            "airing_status": metadata.airing_status.name,
+            "airing_status": (
+                metadata.airing_status
+                # if isinstance(metadata.airing_status, AiringStatus)
+                # else str(metadata.airing_status)
+            ),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch metadata: {e}")
-    
+
+
+@router.get("/dub-availability", response_model=DubAvailabilityResponse)
+async def check_dub(
+    anime_title: str = Query(..., description="Anime title for dubbed Version"),
+):
+    """Check if a dubbed version is available"""
+    try:
+        available, link = dub_availability_and_link(anime_title)
+        return {"dub_available": available, "link": link}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
+
+
+@router.get("/download_links", response_model=DownloadLinkResponse)
+async def download_links(
+    anime_url: HttpUrl = Query(..., description="Anime title"),
+    start_episode: int = Query(..., description="Start episode", ge=1),
+    end_episode: int = Query(..., description="End episode", ge=1),
+    quality: str = Query("720", description="Preferred video Quality"),
+    background_tasks: BackgroundTasks = Depends()
+):
+    """Fetch download links for episodes of a specific anime"""
+    try:
+        validate_episode_range(start_episode, end_episode)
+
+        content, url = get_anime_page_content(str(anime_url))
+        anime_id = extract_anime_id(content)
+        download_page_links = get_download_page_links(start_episode, end_episode, anime_id)
+
+        downloader = GetDirectDownloadLinks()
+
+        # Progress callback for tracking
+        def progress_callback(completed: int):
+            print(f"Progress: {completed} episodes processed.")\
+        
+        background_tasks.add_task(
+            downloader.get_direct_download_links,
+            download_page_links,
+            quality,
+            progress_update_callback=progress_callback
+        )
+
+        direct_download_links, sizes = downloader.get_direct_download_links(download_page_links, quality)
+        if not direct_download_links:
+            raise HTTPException(status_code=404, detail="No direct download links available")
+        return {"download_links": direct_download_links, "sizes": sizes}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
