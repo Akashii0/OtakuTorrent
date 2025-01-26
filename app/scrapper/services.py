@@ -210,8 +210,16 @@ def extract_anime_metadata(anime_page_content: bytes) -> AnimeMetadata:
         airing_status = AiringStatus.ONGOING
     else:
         airing_status = AiringStatus.FINISHED
+    # return AnimeMetadata(
+    #     poster_link, summary, genres, release_year, episode_count, airing_status
+    # )
     return AnimeMetadata(
-        poster_link, summary, genres, release_year, episode_count, airing_status
+        poster_url=poster_link,
+        summary=summary,
+        genres=genres,
+        release_year=release_year,
+        episode_count=episode_count,
+        airing_status=airing_status,
     )
 
 
