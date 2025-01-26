@@ -1,3 +1,5 @@
+# flake8: noqa: E501
+
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, Path, Depends
 from fastapi.responses import JSONResponse
 from typing import List, Optional
@@ -16,10 +18,15 @@ from app.scrapper.schemas.base import (
     DownloadLinkResponse,
     DubAvailabilityResponse,
 )
+from pydantic import HttpUrl
+
 
 def validate_episode_range(start: int, end: int):
     if start > end or start < 1:
-        raise HTTPException(status_code=400, detail="Invalid episode range: start must be <= end and >= 1")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid episode range: start must be <= end and >= 1",
+        )
 
 
 router = APIRouter()
@@ -41,3 +48,22 @@ async def search_anime(
         raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
 
 
+@router.get("/metadata", response_model=AnimeMetadataResponse)
+async def get_metadata(
+    anime_url: HttpUrl = Query(..., description="Anime URL"),
+):
+    """Get anime metadata from URL."""
+    try:
+        content, url = get_anime_page_content(anime_url)
+        metadata = extract_anime_metadata(content)
+        return {
+            "poster_link": metadata.poster_link,
+            "summary": metadata.summary,
+            "genres": metadata.genres,
+            "release_year": metadata.release_year,
+            "episode_count": metadata.episode_count,
+            "airing_status": metadata.airing_status.name,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch metadata: {e}")
+    
