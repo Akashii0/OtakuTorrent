@@ -2,7 +2,7 @@
 
 import random
 import re
-from typing import Callable, cast
+from typing import Callable, List, Tuple, cast
 
 from bs4 import BeautifulSoup, ResultSet, Tag
 from requests.cookies import RequestsCookieJar
@@ -31,23 +31,61 @@ SESSION_COOKIES: RequestsCookieJar | None = None
 FIRST_REQUEST = True
 
 
-def search(keyword: str, ignore_dub=True) -> list[tuple[str, str]]:
+# def search(keyword: str, ignore_dub=True) -> list[tuple[str, str]]:
+#     search_url = AJAX_SEARCH_URL + keyword
+#     response = CLIENT.get(search_url)
+#     content = response.json()["content"]
+#     soup = BeautifulSoup(content, PARSER)
+#     a_tag = cast(list[Tag], soup.find_all("a"))
+
+#     # title_and_link = list[tuple[str, str]] = []
+#     title_and_link: list[tuple[str, str]] = []
+
+#     for a in a_tag:
+#         title = a_tag
+#         link = f'{GOGO_URL}/{a["href"]}'
+#         title_and_link.append((title, link))
+#     for title, link in title_and_link:
+#         if ignore_dub and DUB_EXTENSION in title:
+#             sub_title = title.replace(DUB_EXTENSION, "")
+#             if any([sub_title == title for title, _ in title_and_link]):
+#                 title_and_link.remove((title, link))
+#     return title_and_link
+
+def search(keyword: str, ignore_dub=True) -> List[Tuple[str, str]]:
     search_url = AJAX_SEARCH_URL + keyword
     response = CLIENT.get(search_url)
     content = response.json()["content"]
+    
+    # Parse HTML content
     soup = BeautifulSoup(content, PARSER)
-    a_tag = cast(list[Tag], soup.find_all("a"))
-    title_and_link = list[tuple[str, str]] = []
-    for a in a_tag:
-        title = a_tag
-        link = f'{GOGO_URL}/{a["href"]}'
-        title_and_link.append((title, link))
-    for title, link in title_and_link:
-        if ignore_dub and DUB_EXTENSION in title:
-            sub_title = title.replace(DUB_EXTENSION, "")
-            if any([sub_title == title for title, _ in title_and_link]):
-                title_and_link.remove((title, link))
+    
+    # Find all relevant <a> tags with the "ss-title" class
+    a_tags = soup.find_all("a", class_="ss-title")
+    
+    # Initialize the list to store (title, URL) pairs
+    title_and_link: List[Tuple[str, str]] = []
+    
+    # Extract title and URL from each <a> tag
+    for a_tag in a_tags:
+        title = a_tag.get_text(strip=True)
+        href = f'{GOGO_URL}/{a_tag["href"]}'  # Append the base URL to the href
+        title_and_link.append((title, href))
+    
+    # Optionally filter out dubbed entries
+    if ignore_dub:
+        filtered_results = []
+        for title, link in title_and_link:
+            if DUB_EXTENSION in title:
+                # Check if the subbed version of the title exists
+                sub_title = title.replace(DUB_EXTENSION, "")
+                if any(sub_title == t for t, _ in title_and_link):
+                    continue  # Skip the dubbed version if subbed exists
+            filtered_results.append((title, link))
+        title_and_link = filtered_results
+    
     return title_and_link
+
 
 def extract_anime_id(anime_page_content: bytes) -> int:
     soup = BeautifulSoup(anime_page_content, PARSER)
