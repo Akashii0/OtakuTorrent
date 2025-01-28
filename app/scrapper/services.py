@@ -120,39 +120,61 @@ class GetDirectDownloadLinks(ProgressFunction):
             self,
             download_page_links: list[str],
             user_quality: str,
+            cookies: RequestsCookieJar,
             progress_update_callback: Callable[[int], None] | None = None,   
     ) -> tuple[list[str], list[int]]:
+        MAX_RETRIES = 5  # Set a reasonable retry limit
+
         direct_download_links: list[str] = []
         download_sizes: list[int] = []
+
         for eps_pg_link in download_page_links:
             link = ""
             size = 0
-            while True:
-                response = CLIENT.get(eps_pg_link, cookies=get_session_cookies())
-                soup = BeautifulSoup(response.content, PARSER)
-                a_tags = cast(
-                    ResultSet[Tag],
-                    cast(Tag, soup.find("div", class_="cf-download")).find_all("a"),
-                )
-                qualities = [a.text for a in a_tags]
-                idx = closest_quality_index(qualities, user_quality)
-                link = cast(str, a_tags[idx]["href"])
-                if not link:
-                    continue
+            retries = 0  # Track retry attempts
+
+            while retries < MAX_RETRIES:
                 try:
+                    print("Tryingg")
+                    response = CLIENT.get(eps_pg_link, cookies=cookies)
+                    soup = BeautifulSoup(response.content, PARSER)
+                    a_tags = cast(
+                        ResultSet[Tag],
+                        cast(Tag, soup.find("div", class_="cf-download")).find_all("a"),
+                    )
+                    qualities = [a.text for a in a_tags]
+                    idx = closest_quality_index(qualities, user_quality)
+                    link = cast(str, a_tags[idx]["href"])
+
+                    if not link:
+                        print("Next try")
+                        retries += 1
+                        continue
+
+                    # Try fetching resource size and breaking the loop
                     size, link = Download.get_resource_length(link)
                     break
+
                 except NoResourceLength:
-                    continue
+                    print("Next try")
+                    retries += 1  # Retry if size cannot be determined
+
+            if retries >= MAX_RETRIES:
+                # Skip this episode if retries are exhausted
+                continue
+
             direct_download_links.append(link)
             download_sizes.append(size)
+            print("appended links")
             self.resume.wait()
             if self.cancelled:
                 return [], []
             if progress_update_callback:
                 progress_update_callback(1)
+
+        print("Trying to return direct download links")
         return direct_download_links, download_sizes
-    
+
 
 def get_anime_page_content(anime_page_link: str) -> tuple[bytes, str]:
     global FIRST_REQUEST
@@ -252,4 +274,6 @@ def get_session_cookies(fresh=False) -> RequestsCookieJar:
     SESSION_COOKIES = response.cookies
     if not SESSION_COOKIES:
         return get_session_cookies()
+    print("Worked!!!")
     return SESSION_COOKIES
+
