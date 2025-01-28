@@ -3,6 +3,7 @@
 from contextlib import asynccontextmanager
 from anyio import to_thread
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.scrapper.api import router as scrapper_router
 
 
@@ -39,6 +40,15 @@ app = FastAPI(
         "url": "https://akashi.7o7.cx",
         "email": "abdulkid151@gmail.com"
     }
+)
+
+# Allow all origins (for development only)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Replace with specific origins in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(scrapper_router, prefix="/api", tags=["Scrapper"])
