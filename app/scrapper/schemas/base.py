@@ -1,7 +1,7 @@
 # Flake8: noqa: E501
 from typing import List
 from pydantic import BaseModel, Field, HttpUrl
-from app.common.scraper import AiringStatus
+# from app.common.scraper import AiringStatus
 
 
 class SearchResult(BaseModel):
@@ -52,7 +52,7 @@ class DownloadLinkResponse(BaseModel):
 
 class DubAvailabilityResponse(BaseModel):
     dub_available: bool = Field(..., examples=[True, False])
-    dub_link: HttpUrl = Field(
+    link: HttpUrl = Field(
         ...,
         examples=[
             "https://gogoanime.so/category/naruto-dub",
